@@ -7,11 +7,15 @@ author: jianghaolu
 # Getting Started with App - Manage Function App With Authentication - in .Net #
 
           Azure App Service basic sample for managing function apps.
-           - Create 4 function apps under the same new app service plan:
-             - Deploy to 1 using FTP
-             - Deploy to 2 using local Git repository
-             - Deploy to 3 using a publicly available Git repository
-             - Deploy to 4 using a GitHub repository with continuous integration
+           - Create 3 function apps under the same new app service plan and with the same storage account
+             - Deploy 1 & 2 via Git a function that calculates the square of a number
+             - Deploy 3 via Web Deploy
+             - Enable app level authentication for the 1st function app
+             - Verify the 1st function app can be accessed with the admin key
+             - Enable function level authentication for the 2nd function app
+             - Verify the 2nd function app can be accessed with the function key
+             - Enable function level authentication for the 3rd function app
+             - Verify the 3rd function app can be accessed with the function key
 
 
 ## Running this Sample ##
