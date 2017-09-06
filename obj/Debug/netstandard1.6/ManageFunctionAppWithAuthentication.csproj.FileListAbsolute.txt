@@ -1,2 +1,0 @@
-C:\Sources\dotnet-samples\app-service-dotnet-manage-authentication-for-functions\bin\Debug\netstandard1.6\ManageFunctionAppWithAuthentication.deps.json
-C:\Sources\dotnet-samples\app-service-dotnet-manage-authentication-for-functions\obj\Debug\netstandard1.6\ManageFunctionAppWithAuthentication.csproj.CoreCompileInputs.cache
