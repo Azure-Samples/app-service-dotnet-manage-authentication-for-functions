@@ -27,10 +27,10 @@ Set the environment variable `AZURE_AUTH_LOCATION` with the full path for an aut
     git clone https://github.com/Azure-Samples/app-service-dotnet-manage-authentication-for-functions.git
 
     cd app-service-dotnet-manage-authentication-for-functions
-
-    dotnet restore
-
-    dotnet run
+  
+    dotnet build
+    
+    bin\Debug\net452\ManageFunctionAppWithAuthentication.exe
 
 ## More information ##
 
