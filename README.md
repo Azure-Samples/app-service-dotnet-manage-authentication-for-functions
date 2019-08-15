@@ -4,23 +4,23 @@ languages:
 - csharp
 products:
 - azure
-services: App-Service
-platforms: dotnet
-author: yaohaizh
+extensions:
+- services: App-Service
+- platforms: dotnet
 ---
 
 # Getting started on managing authentication for Functions using C# #
 
-          Azure App Service basic sample for managing function apps.
-           - Create 3 function apps under the same new app service plan and with the same storage account
-             - Deploy 1 and 2 via Git a function that calculates the square of a number
-             - Deploy 3 via Web Deploy
-             - Enable app level authentication for the 1st function app
-             - Verify the 1st function app can be accessed with the admin key
-             - Enable function level authentication for the 2nd function app
-             - Verify the 2nd function app can be accessed with the function key
-             - Enable function level authentication for the 3rd function app
-             - Verify the 3rd function app can be accessed with the function key
+ Azure App Service basic sample for managing function apps.
+  - Create 3 function apps under the same new app service plan and with the same storage account
+    - Deploy 1 and 2 via Git a function that calculates the square of a number
+    - Deploy 3 via Web Deploy
+    - Enable app level authentication for the 1st function app
+    - Verify the 1st function app can be accessed with the admin key
+    - Enable function level authentication for the 2nd function app
+    - Verify the 2nd function app can be accessed with the function key
+    - Enable function level authentication for the 3rd function app
+    - Verify the 3rd function app can be accessed with the function key
 
 
 ## Running this Sample ##
