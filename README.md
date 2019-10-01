@@ -10,7 +10,7 @@ extensions:
 description: "Azure App Service basic sample for managing function apps."
 ---
 
-# Getting started on managing authentication for Functions using C# #
+# Managing authentication for Azure Functions using C#
 
  Azure App Service basic sample for managing function apps.
   - Create 3 function apps under the same new app service plan and with the same storage account
@@ -30,13 +30,15 @@ To run this sample:
 
 Set the environment variable `AZURE_AUTH_LOCATION` with the full path for an auth file. See [how to create an auth file](https://github.com/Azure/azure-libraries-for-net/blob/master/AUTH.md).
 
-    git clone https://github.com/Azure-Samples/app-service-dotnet-manage-authentication-for-functions.git
+```bash
+git clone https://github.com/Azure-Samples/app-service-dotnet-manage-authentication-for-functions.git
 
-    cd app-service-dotnet-manage-authentication-for-functions
+cd app-service-dotnet-manage-authentication-for-functions
 
-    dotnet build
+dotnet build
 
-    bin\Debug\net452\ManageFunctionAppWithAuthentication.exe
+bin\Debug\net452\ManageFunctionAppWithAuthentication.exe
+```
 
 ## More information ##
 
