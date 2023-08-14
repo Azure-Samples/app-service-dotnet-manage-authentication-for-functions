@@ -1,15 +1,22 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See License.txt in the project root for license information.
 
-using Microsoft.Azure.Management.AppService.Fluent;
-using Microsoft.Azure.Management.Fluent;
-using Microsoft.Azure.Management.ResourceManager.Fluent;
-using Microsoft.Azure.Management.ResourceManager.Fluent.Core;
+using Azure.Core;
+using Azure.Identity;
+using Azure.ResourceManager;
+using Azure.ResourceManager.AppService;
+using Azure.ResourceManager.CosmosDB;
+using Azure.ResourceManager.CosmosDB.Models;
+using Azure.ResourceManager.KeyVault;
+using Azure.ResourceManager.KeyVault.Models;
+using Azure.ResourceManager.Resources;
+using Azure.ResourceManager.Samples.Common;
 using Microsoft.Azure.Management.Samples.Common;
 using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
+using System.IO;
 using System.Linq;
+using System.Threading;
 
 namespace ManageFunctionAppWithAuthentication
 {
@@ -29,17 +36,21 @@ namespace ManageFunctionAppWithAuthentication
          */
 
 
-        public static void RunSample(IAzure azure)
+        public static void RunSample(ArmClient client)
         {
             // New resources
+            AzureLocation region = AzureLocation.EastUS;
             string suffix         = ".azurewebsites.net";
-            string app1Name       = SdkContext.RandomResourceName("webapp1-", 20);
-            string app2Name       = SdkContext.RandomResourceName("webapp2-", 20);
-            string app3Name       = SdkContext.RandomResourceName("webapp3-", 20);
+            string appName        = Utilities.CreateRandomName("webapp-");
+            string app1Name       = Utilities.CreateRandomName("webapp1-");
+            string app2Name       = Utilities.CreateRandomName("webapp2-");
+            string app3Name       = Utilities.CreateRandomName("webapp3-");
             string app1Url        = app1Name + suffix;
             string app2Url        = app2Name + suffix;
             string app3Url        = app3Name + suffix;
-            string rgName         = SdkContext.RandomResourceName("rg1NEMV_", 24);
+            string rgName         = Utilities.CreateRandomName("rg1NEMV_");
+            var lro = client.GetDefaultSubscription().GetResourceGroups().CreateOrUpdate(Azure.WaitUntil.Completed, rgName, new ResourceGroupData(AzureLocation.EastUS));
+            var resourceGroup = lro.Value;
 
             try {
 
@@ -49,14 +60,27 @@ namespace ManageFunctionAppWithAuthentication
 
                 Utilities.Log("Creating function app " + app1Name + " in resource group " + rgName + " with admin level auth...");
 
-                IFunctionApp app1 = azure.AppServices.FunctionApps.Define(app1Name)
-                        .WithRegion(Region.USWest)
-                        .WithNewResourceGroup(rgName)
-                        .WithLocalGitSourceControl()
-                        .Create();
+                var webSiteCollection = resourceGroup.GetWebSites();
+                var webSiteData = new WebSiteData(region)
+                {
+                    SiteConfig = new Azure.ResourceManager.AppService.Models.SiteConfigProperties()
+                    {
+                        WindowsFxVersion = "PricingTier.StandardS1",
+                        NetFrameworkVersion = "NetFrameworkVersion.V4_6",
+                    }
+                };
+                var webSite_lro = webSiteCollection.CreateOrUpdate(Azure.WaitUntil.Completed, appName, webSiteData);
+                var webSite = webSite_lro.Value;
 
-                Utilities.Log("Created function app " + app1.Name);
-                Utilities.Print(app1);
+                var functionCollection = webSite.GetSiteFunctions();
+                var functionData = new FunctionEnvelopeData()
+                {   
+                };
+                var function_lro = functionCollection.CreateOrUpdate(Azure.WaitUntil.Completed, app1Name, functionData);
+                var function = function_lro.Value;
+
+                Utilities.Log("Created function app " + function.Data.Name);
+                Utilities.Print(function);
 
                 //============================================================
                 // Create a second function app with function level auth
@@ -177,18 +201,17 @@ namespace ManageFunctionAppWithAuthentication
             {
                 //=================================================================
                 // Authenticate
-                var credentials = SdkContext.AzureCredentialsFactory.FromFile(Environment.GetEnvironmentVariable("AZURE_AUTH_LOCATION"));
-
-                var azure = Azure
-                    .Configure()
-                    .WithLogLevel(HttpLoggingDelegatingHandler.Level.Basic)
-                    .Authenticate(credentials)
-                    .WithDefaultSubscription();
+                var clientId = Environment.GetEnvironmentVariable("CLIENT_ID");
+                var clientSecret = Environment.GetEnvironmentVariable("CLIENT_SECRET");
+                var tenantId = Environment.GetEnvironmentVariable("TENANT_ID");
+                var subscription = Environment.GetEnvironmentVariable("SUBSCRIPTION_ID");
+                ClientSecretCredential credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+                ArmClient client = new ArmClient(credential, subscription);
 
                 // Print selected subscription
-                Utilities.Log("Selected subscription: " + azure.SubscriptionId);
+                Utilities.Log("Selected subscription: " + client.GetSubscriptions().Id);
 
-                RunSample(azure);
+                RunSample(client);
             }
             catch (Exception e)
             {
