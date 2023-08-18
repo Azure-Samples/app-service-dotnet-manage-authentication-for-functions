@@ -49,7 +49,7 @@ using Microsoft.Azure.Management.Eventhub.Fluent;
 using Microsoft.Azure.Management.Monitor.Fluent;
 using Microsoft.Azure.Management.PrivateDns.Fluent;
 
-namespace Microsoft.Azure.Management.Samples.Common
+namespace Azure.ResourceManager.Samples.Common
 {
     public static class Utilities
     {
@@ -311,22 +311,13 @@ namespace Microsoft.Azure.Management.Samples.Common
             Utilities.Log(info.ToString());
         }
 
-        public static void Print(ITopicAuthorizationRule topicAuthorizationRule)
+        public static void Print(ArmResource resource)
         {
             StringBuilder builder = new StringBuilder()
-                    .Append("Service bus topic authorization rule: ").Append(topicAuthorizationRule.Id)
-                    .Append("\n\tName: ").Append(topicAuthorizationRule.Name)
-                    .Append("\n\tResourceGroupName: ").Append(topicAuthorizationRule.ResourceGroupName)
-                    .Append("\n\tNamespace Name: ").Append(topicAuthorizationRule.NamespaceName)
-                    .Append("\n\tTopic Name: ").Append(topicAuthorizationRule.TopicName);
-
-            var rights = topicAuthorizationRule.Rights;
-            builder.Append("\n\tNumber of access rights in queue: ").Append(rights.Count);
-            foreach (var right in rights)
-            {
-                builder.Append("\n\t\tAccessRight: ")
-                        .Append("\n\t\t\tName :").Append(right.ToString());
-            }
+                    .Append("Service bus topic authorization rule: ").Append(resource.Id)
+                    .Append("\n\tName: ").Append(resource.Id.Name)
+                    .Append("\n\tResourceGroupName: ").Append(resource.Id.ResourceGroupName)
+                    .Append("\n\tNamespace Name: ").Append(resource.Id.ResourceType.Namespace);
 
             Log(builder.ToString());
         }
@@ -2997,7 +2988,7 @@ namespace Microsoft.Azure.Management.Samples.Common
         }
 
 
-        public static void DeployByGit(IPublishingProfile profile, string repository)
+        public static void DeployByGit(Stream profile, string repository)
         {
             if (!IsRunningMocked)
             {
@@ -3005,7 +2996,7 @@ namespace Microsoft.Azure.Management.Samples.Common
                 string gitInitArgument = @"init";
                 string gitAddArgument = @"add -A";
                 string gitCommitArgument = @"commit -am ""Initial commit"" ";
-                string gitPushArgument = $"push https://{profile.GitUsername}:{profile.GitPassword}@{profile.GitUrl} master:master -f";
+                string gitPushArgument = $"push https://{profile.}:{profile.GitPassword}@{profile.GitUrl} master:master -f";
 
                 ProcessStartInfo info = new ProcessStartInfo(gitCommand, gitInitArgument);
                 info.WorkingDirectory = Path.Combine(ProjectPath, "Asset", repository);

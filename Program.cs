@@ -11,12 +11,18 @@ using Azure.ResourceManager.KeyVault;
 using Azure.ResourceManager.KeyVault.Models;
 using Azure.ResourceManager.Resources;
 using Azure.ResourceManager.Samples.Common;
-using Microsoft.Azure.Management.Samples.Common;
+using Azure;
+using System;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
+using Azure.ResourceManager.AppService.Models;
 
 namespace ManageFunctionAppWithAuthentication
 {
@@ -36,7 +42,7 @@ namespace ManageFunctionAppWithAuthentication
          */
 
 
-        public static void RunSample(ArmClient client)
+        public static async Task RunSample(ArmClient client)
         {
             // New resources
             AzureLocation region = AzureLocation.EastUS;
@@ -69,14 +75,14 @@ namespace ManageFunctionAppWithAuthentication
                         NetFrameworkVersion = "NetFrameworkVersion.V4_6",
                     }
                 };
-                var webSite_lro = webSiteCollection.CreateOrUpdate(Azure.WaitUntil.Completed, appName, webSiteData);
+                var webSite_lro =await  webSiteCollection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, appName, webSiteData);
                 var webSite = webSite_lro.Value;
 
                 var functionCollection = webSite.GetSiteFunctions();
                 var functionData = new FunctionEnvelopeData()
                 {   
                 };
-                var function_lro = functionCollection.CreateOrUpdate(Azure.WaitUntil.Completed, app1Name, functionData);
+                var function_lro =await functionCollection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app1Name, functionData);
                 var function = function_lro.Value;
 
                 Utilities.Log("Created function app " + function.Data.Name);
@@ -86,70 +92,81 @@ namespace ManageFunctionAppWithAuthentication
                 // Create a second function app with function level auth
 
                 Utilities.Log("Creating another function app " + app2Name + " in resource group " + rgName + " with function level auth...");
-                IAppServicePlan plan = azure.AppServices.AppServicePlans.GetById(app1.AppServicePlanId);
-                IFunctionApp app2 = azure.AppServices.FunctionApps.Define(app2Name)
-                        .WithExistingAppServicePlan(plan)
-                        .WithExistingResourceGroup(rgName)
-                        .WithExistingStorageAccount(app1.StorageAccount)
-                        .WithLocalGitSourceControl()
-                        .Create();
+                var plan = webSite.Data.AppServicePlanId;
+                var function2Collection = webSite.GetSiteFunctions();
+                var function2Data = new FunctionEnvelopeData()
+                {
+                };
+                var function2_lro = await functionCollection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app1Name, functionData);
+                var function2 = function_lro.Value;
 
-                Utilities.Log("Created function app " + app2.Name);
-                Utilities.Print(app2);
+                Utilities.Log("Created function app " + function2.Data.Name);
+                Utilities.Print(function2);
 
                 //============================================================
                 // Create a third function app with function level auth
 
                 Utilities.Log("Creating another function app " + app3Name + " in resource group " + rgName + " with function level auth...");
-                IFunctionApp app3 = azure.AppServices.FunctionApps.Define(app3Name)
-                        .WithExistingAppServicePlan(plan)
-                        .WithExistingResourceGroup(rgName)
-                        .WithExistingStorageAccount(app1.StorageAccount)
-                        .WithLocalGitSourceControl()
-                        .Create();
+                var function3Collection = webSite.GetSiteFunctions();
+                var function3Data = new FunctionEnvelopeData()
+                {
+                };
+                var function3_lro = await functionCollection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app1Name, functionData);
+                var function3 = function_lro.Value;
 
-                Utilities.Log("Created function app " + app3.Name);
-                Utilities.Print(app3);
+                Utilities.Log("Created function app " + function3.Data.Name);
+                Utilities.Print(function3);
 
                 //============================================================
                 // Deploy to app 1 through Git
 
                 Utilities.Log("Deploying a local function app to " + app1Name + " through Git...");
 
-                IPublishingProfile profile = app1.GetPublishingProfile();
+                var profile_lro = await webSite.GetPublishingProfileXmlWithSecretsAsync(new CsmPublishingProfile()
+                {
+                    Format = PublishingProfileFormat.Ftp
+                });
+                var profile = profile_lro.Value;
                 Utilities.DeployByGit(profile, "square-function-app-admin-auth");
 
                 // warm up
                 Utilities.Log("Warming up " + app1Url + "/api/square...");
                 Utilities.PostAddress("http://" + app1Url + "/api/square", "625");
-                SdkContext.DelayProvider.Delay(5000);
+                Thread.Sleep(5000);
                 Utilities.Log("CURLing " + app1Url + "/api/square...");
-                Utilities.Log("Square of 625 is " + Utilities.PostAddress("http://" + app1Url + "/api/square?code=" + app1.GetMasterKey(), "625"));
+                Utilities.Log("Square of 625 is " + Utilities.PostAddress("http://" + app1Url + "/api/square?code=" + function.GetFunctionKeys(), "625"));
 
                 //============================================================
                 // Deploy to app 2 through Git
 
                 Utilities.Log("Deploying a local function app to " + app2Name + " through Git...");
 
-                profile = app2.GetPublishingProfile();
                 Utilities.DeployByGit(profile, "square-function-app-function-auth");
 
-                Utilities.Log("Deployment to function app " + app2.Name + " completed");
-                Utilities.Print(app2);
+                Utilities.Log("Deployment to function app " + function2.Data.Name + " completed");
+                Utilities.Print(function2);
 
 
-                string functionKey = app2.ListFunctionKeys("square").Values.First();
+                var functionKey_lro =await function2.GetFunctionKeysAsync();
+                var functionKey = functionKey_lro.Value;
+                var functionKey1 = functionKey.Properties.First();
 
                 // warm up
                 Utilities.Log("Warming up " + app2Url + "/api/square...");
                 Utilities.PostAddress("http://" + app2Url + "/api/square", "725");
-                SdkContext.DelayProvider.Delay(5000);
+                Thread.Sleep(5000);
                 Utilities.Log("CURLing " + app2Url + "/api/square...");
-                Utilities.Log("Square of 725 is " + Utilities.PostAddress("http://" + app2Url + "/api/square?code=" + functionKey, "725"));
+                Utilities.Log("Square of 725 is " + Utilities.PostAddress("http://" + app2Url + "/api/square?code=" + functionKey1, "725"));
             
-                Utilities.Log("Adding a new key to function app " + app2.Name + "...");
+                Utilities.Log("Adding a new key to function app " + function2.Data.Name + "...");
 
-                var newKey = app2.AddFunctionKey("square", "newkey", null);
+                var newKey = function2.CreateOrUpdateFunctionSecret("square", new WebAppKeyInfo()
+                {
+                    Properties = new WebAppKeyInfoProperties()
+                    {
+                        Name = "newkey",
+                    }
+                });
 
                 Utilities.Log("CURLing " + app2Url + "/api/square...");
                 Utilities.Log("Square of 825 is " + Utilities.PostAddress("http://" + app2Url + "/api/square?code=" + newKey.Value, "825"));
@@ -159,20 +176,28 @@ namespace ManageFunctionAppWithAuthentication
 
                 Utilities.Log("Deploying a local function app to " + app3Name + " throuh web deploy...");
 
-                app3.Deploy()
-                    .WithPackageUri("https://github.com/Azure/azure-libraries-for-net/raw/master/Samples/Asset/square-function-app-function-auth.zip")
-                    .WithExistingDeploymentsDeleted(false)
-                    .Execute();
+                var extensionResource = webSite.GetSiteExtension();
+                var deployment = await extensionResource.CreateOrUpdateAsync(WaitUntil.Completed, new WebAppMSDeploy()
+                {
+                    PackageUri = new Uri("https://github.com/Azure/azure-libraries-for-net/raw/master/Samples/Asset/square-function-app-function-auth.zip"),
+                });
 
-                Utilities.Log("Deployment to function app " + app3.Name + " completed");
+                Utilities.Log("Deployment to function app " + function3.Data.Name + " completed");
 
-                Utilities.Log("Adding a new key to function app " + app3.Name + "...");
-                app3.AddFunctionKey("square", "newkey", "mysecretkey");
+                Utilities.Log("Adding a new key to function app " + function.Data.Name + "...");
+                function3.CreateOrUpdateFunctionSecret("square",new WebAppKeyInfo()
+                {
+                    Properties = new WebAppKeyInfoProperties()
+                    {
+                        Name = "newkey",
+                        Value = "mysecretkey"
+                    }
+                });
 
                 // warm up
                 Utilities.Log("Warming up " + app3Url + "/api/square...");
                 Utilities.PostAddress("http://" + app3Url + "/api/square", "925");
-                SdkContext.DelayProvider.Delay(5000);
+                Thread.Sleep(5000);
                 Utilities.Log("CURLing " + app3Url + "/api/square...");
                 Utilities.Log("Square of 925 is " + Utilities.PostAddress("http://" + app3Url + "/api/square?code=mysecretkey", "925"));
             }
@@ -181,7 +206,7 @@ namespace ManageFunctionAppWithAuthentication
                 try
                 {
                     Utilities.Log("Deleting Resource Group: " + rgName);
-                    azure.ResourceGroups.DeleteByName(rgName);
+                    await resourceGroup.DeleteAsync(WaitUntil.Completed);
                     Utilities.Log("Deleted Resource Group: " + rgName);
                 }
                 catch (NullReferenceException)
@@ -195,7 +220,7 @@ namespace ManageFunctionAppWithAuthentication
             }
         }
 
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             try
             {
@@ -211,7 +236,7 @@ namespace ManageFunctionAppWithAuthentication
                 // Print selected subscription
                 Utilities.Log("Selected subscription: " + client.GetSubscriptions().Id);
 
-                RunSample(client);
+                await RunSample(client);
             }
             catch (Exception e)
             {
