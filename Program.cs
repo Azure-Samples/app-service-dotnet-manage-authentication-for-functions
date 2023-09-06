@@ -23,6 +23,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using Azure.ResourceManager.AppService.Models;
+using System.Xml;
 
 namespace ManageFunctionAppWithAuthentication
 {
@@ -92,13 +93,23 @@ namespace ManageFunctionAppWithAuthentication
                 // Create a second function app with function level auth
 
                 Utilities.Log("Creating another function app " + app2Name + " in resource group " + rgName + " with function level auth...");
-                var plan = webSite.Data.AppServicePlanId;
-                var function2Collection = webSite.GetSiteFunctions();
+                var webSite2Collection = resourceGroup.GetWebSites();
+                var webSite2Data = new WebSiteData(region)
+                {
+                    SiteConfig = new Azure.ResourceManager.AppService.Models.SiteConfigProperties()
+                    {
+                        WindowsFxVersion = "PricingTier.StandardS1",
+                        NetFrameworkVersion = "NetFrameworkVersion.V4_6",
+                    }
+                };
+                var webSite2_lro = await webSite2Collection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app2Name, webSite2Data);
+                var webSite2 = webSite2_lro.Value;
+                var function2Collection = webSite2.GetSiteFunctions();
                 var function2Data = new FunctionEnvelopeData()
                 {
                 };
-                var function2_lro = await functionCollection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app1Name, functionData);
-                var function2 = function_lro.Value;
+                var function2_lro = await function2Collection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app2Name, function2Data);
+                var function2 = function2_lro.Value;
 
                 Utilities.Log("Created function app " + function2.Data.Name);
                 Utilities.Print(function2);
@@ -111,8 +122,8 @@ namespace ManageFunctionAppWithAuthentication
                 var function3Data = new FunctionEnvelopeData()
                 {
                 };
-                var function3_lro = await functionCollection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app1Name, functionData);
-                var function3 = function_lro.Value;
+                var function3_lro = await function3Collection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app3Name, function3Data);
+                var function3 = function3_lro.Value;
 
                 Utilities.Log("Created function app " + function3.Data.Name);
                 Utilities.Print(function3);
@@ -124,10 +135,20 @@ namespace ManageFunctionAppWithAuthentication
 
                 var profile_lro = await webSite.GetPublishingProfileXmlWithSecretsAsync(new CsmPublishingProfile()
                 {
-                    Format = PublishingProfileFormat.Ftp
+                    Format = PublishingProfileFormat.WebDeploy
                 });
                 var profile = profile_lro.Value;
-                Utilities.DeployByGit(profile, "square-function-app-admin-auth");
+                var reader = new StreamReader(profile);
+                var content = reader.ReadToEnd();
+                XmlDocument xmlDoc = new XmlDocument();
+                xmlDoc.LoadXml(content);
+                XmlNodeList gitUrl = xmlDoc.GetElementsByTagName("publishUrl");
+                string gitUrlString = gitUrl[0].InnerText;
+                XmlNodeList userName = xmlDoc.GetElementsByTagName("userName");
+                string userNameString = userName[0].InnerText;
+                XmlNodeList password = xmlDoc.GetElementsByTagName("userPWD");
+                string passwordString = password[0].InnerText;
+                Utilities.DeployByGit(userNameString, passwordString, gitUrlString, "azure-samples-appservice-helloworld");
 
                 // warm up
                 Utilities.Log("Warming up " + app1Url + "/api/square...");
@@ -141,10 +162,25 @@ namespace ManageFunctionAppWithAuthentication
 
                 Utilities.Log("Deploying a local function app to " + app2Name + " through Git...");
 
-                Utilities.DeployByGit(profile, "square-function-app-function-auth");
+                var profile2_lro = await webSite2.GetPublishingProfileXmlWithSecretsAsync(new CsmPublishingProfile()
+                {
+                    Format = PublishingProfileFormat.WebDeploy
+                });
+                var profile2 = profile2_lro.Value;
+                var reader2 = new StreamReader(profile2);
+                var content2 = reader2.ReadToEnd();
+                XmlDocument xmlDoc2 = new XmlDocument();
+                xmlDoc.LoadXml(content2);
+                XmlNodeList gitUrl2 = xmlDoc2.GetElementsByTagName("publishUrl");
+                string gitUrlString2 = gitUrl2[0].InnerText;
+                XmlNodeList userName2 = xmlDoc.GetElementsByTagName("userName");
+                string userNameString2 = userName2[0].InnerText;
+                XmlNodeList password2 = xmlDoc.GetElementsByTagName("userPWD");
+                string passwordString2 = password2[0].InnerText;
+                Utilities.DeployByGit(userNameString2, passwordString2, gitUrlString2, "azure-samples-appservice-helloworld");
 
-                Utilities.Log("Deployment to function app " + function2.Data.Name + " completed");
-                Utilities.Print(function2);
+                Utilities.Log("Deployment to function app " + webSite2.Data.Name + " completed");
+                Utilities.Print(webSite2);
 
 
                 var functionKey_lro =await function2.GetFunctionKeysAsync();
@@ -177,10 +213,11 @@ namespace ManageFunctionAppWithAuthentication
                 Utilities.Log("Deploying a local function app to " + app3Name + " throuh web deploy...");
 
                 var extensionResource = webSite.GetSiteExtension();
-                var deployment = await extensionResource.CreateOrUpdateAsync(WaitUntil.Completed, new WebAppMSDeploy()
+                var deployment_lro = await extensionResource.CreateOrUpdateAsync(WaitUntil.Completed, new WebAppMSDeploy()
                 {
                     PackageUri = new Uri("https://github.com/Azure/azure-libraries-for-net/raw/master/Samples/Asset/square-function-app-function-auth.zip"),
                 });
+                var deployment = deployment_lro.Value;
 
                 Utilities.Log("Deployment to function app " + function3.Data.Name + " completed");
 
