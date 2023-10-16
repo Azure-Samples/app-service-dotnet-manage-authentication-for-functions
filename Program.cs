@@ -148,7 +148,7 @@ namespace ManageFunctionAppWithAuthentication
                 string userNameString = userName[0].InnerText;
                 XmlNodeList password = xmlDoc.GetElementsByTagName("userPWD");
                 string passwordString = password[0].InnerText;
-                Utilities.DeployByGit(userNameString, passwordString, gitUrlString, "azure-samples-appservice-helloworld");
+                Utilities.DeployByGit(userNameString, passwordString, gitUrlString, "square-function-app-admin-auth");
 
                 // warm up
                 Utilities.Log("Warming up " + app1Url + "/api/square...");
@@ -177,7 +177,7 @@ namespace ManageFunctionAppWithAuthentication
                 string userNameString2 = userName2[0].InnerText;
                 XmlNodeList password2 = xmlDoc.GetElementsByTagName("userPWD");
                 string passwordString2 = password2[0].InnerText;
-                Utilities.DeployByGit(userNameString2, passwordString2, gitUrlString2, "azure-samples-appservice-helloworld");
+                Utilities.DeployByGit(userNameString2, passwordString2, gitUrlString2, "square-function-app-function-auth");
 
                 Utilities.Log("Deployment to function app " + webSite2.Data.Name + " completed");
                 Utilities.Print(webSite2);
