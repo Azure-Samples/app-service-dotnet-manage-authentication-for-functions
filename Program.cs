@@ -1,15 +1,29 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See License.txt in the project root for license information.
 
-using Microsoft.Azure.Management.AppService.Fluent;
-using Microsoft.Azure.Management.Fluent;
-using Microsoft.Azure.Management.ResourceManager.Fluent;
-using Microsoft.Azure.Management.ResourceManager.Fluent.Core;
-using Microsoft.Azure.Management.Samples.Common;
+using Azure.Core;
+using Azure.Identity;
+using Azure.ResourceManager;
+using Azure.ResourceManager.AppService;
+using Azure.ResourceManager.CosmosDB;
+using Azure.ResourceManager.CosmosDB.Models;
+using Azure.ResourceManager.KeyVault;
+using Azure.ResourceManager.KeyVault.Models;
+using Azure.ResourceManager.Resources;
+using Azure.ResourceManager.Samples.Common;
+using Azure;
+using System;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
+using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using Azure.ResourceManager.AppService.Models;
+using System.Xml;
 
 namespace ManageFunctionAppWithAuthentication
 {
@@ -29,17 +43,21 @@ namespace ManageFunctionAppWithAuthentication
          */
 
 
-        public static void RunSample(IAzure azure)
+        public static async Task RunSample(ArmClient client)
         {
             // New resources
+            AzureLocation region = AzureLocation.EastUS;
             string suffix         = ".azurewebsites.net";
-            string app1Name       = SdkContext.RandomResourceName("webapp1-", 20);
-            string app2Name       = SdkContext.RandomResourceName("webapp2-", 20);
-            string app3Name       = SdkContext.RandomResourceName("webapp3-", 20);
+            string appName        = Utilities.CreateRandomName("webapp-");
+            string app1Name       = Utilities.CreateRandomName("webapp1-");
+            string app2Name       = Utilities.CreateRandomName("webapp2-");
+            string app3Name       = Utilities.CreateRandomName("webapp3-");
             string app1Url        = app1Name + suffix;
             string app2Url        = app2Name + suffix;
             string app3Url        = app3Name + suffix;
-            string rgName         = SdkContext.RandomResourceName("rg1NEMV_", 24);
+            string rgName         = Utilities.CreateRandomName("rg1NEMV_");
+            var lro = client.GetDefaultSubscription().GetResourceGroups().CreateOrUpdate(Azure.WaitUntil.Completed, rgName, new ResourceGroupData(AzureLocation.EastUS));
+            var resourceGroup = lro.Value;
 
             try {
 
@@ -49,83 +67,142 @@ namespace ManageFunctionAppWithAuthentication
 
                 Utilities.Log("Creating function app " + app1Name + " in resource group " + rgName + " with admin level auth...");
 
-                IFunctionApp app1 = azure.AppServices.FunctionApps.Define(app1Name)
-                        .WithRegion(Region.USWest)
-                        .WithNewResourceGroup(rgName)
-                        .WithLocalGitSourceControl()
-                        .Create();
+                var webSiteCollection = resourceGroup.GetWebSites();
+                var webSiteData = new WebSiteData(region)
+                {
+                    SiteConfig = new Azure.ResourceManager.AppService.Models.SiteConfigProperties()
+                    {
+                        WindowsFxVersion = "PricingTier.StandardS1",
+                        NetFrameworkVersion = "NetFrameworkVersion.V4_6",
+                    }
+                };
+                var webSite_lro =await  webSiteCollection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, appName, webSiteData);
+                var webSite = webSite_lro.Value;
 
-                Utilities.Log("Created function app " + app1.Name);
-                Utilities.Print(app1);
+                var functionCollection = webSite.GetSiteFunctions();
+                var functionData = new FunctionEnvelopeData()
+                {   
+                };
+                var function_lro =await functionCollection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app1Name, functionData);
+                var function = function_lro.Value;
+
+                Utilities.Log("Created function app " + function.Data.Name);
+                Utilities.Print(function);
 
                 //============================================================
                 // Create a second function app with function level auth
 
                 Utilities.Log("Creating another function app " + app2Name + " in resource group " + rgName + " with function level auth...");
-                IAppServicePlan plan = azure.AppServices.AppServicePlans.GetById(app1.AppServicePlanId);
-                IFunctionApp app2 = azure.AppServices.FunctionApps.Define(app2Name)
-                        .WithExistingAppServicePlan(plan)
-                        .WithExistingResourceGroup(rgName)
-                        .WithExistingStorageAccount(app1.StorageAccount)
-                        .WithLocalGitSourceControl()
-                        .Create();
+                var webSite2Collection = resourceGroup.GetWebSites();
+                var webSite2Data = new WebSiteData(region)
+                {
+                    SiteConfig = new Azure.ResourceManager.AppService.Models.SiteConfigProperties()
+                    {
+                        WindowsFxVersion = "PricingTier.StandardS1",
+                        NetFrameworkVersion = "NetFrameworkVersion.V4_6",
+                    }
+                };
+                var webSite2_lro = await webSite2Collection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app2Name, webSite2Data);
+                var webSite2 = webSite2_lro.Value;
+                var function2Collection = webSite2.GetSiteFunctions();
+                var function2Data = new FunctionEnvelopeData()
+                {
+                };
+                var function2_lro = await function2Collection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app2Name, function2Data);
+                var function2 = function2_lro.Value;
 
-                Utilities.Log("Created function app " + app2.Name);
-                Utilities.Print(app2);
+                Utilities.Log("Created function app " + function2.Data.Name);
+                Utilities.Print(function2);
 
                 //============================================================
                 // Create a third function app with function level auth
 
                 Utilities.Log("Creating another function app " + app3Name + " in resource group " + rgName + " with function level auth...");
-                IFunctionApp app3 = azure.AppServices.FunctionApps.Define(app3Name)
-                        .WithExistingAppServicePlan(plan)
-                        .WithExistingResourceGroup(rgName)
-                        .WithExistingStorageAccount(app1.StorageAccount)
-                        .WithLocalGitSourceControl()
-                        .Create();
+                var function3Collection = webSite.GetSiteFunctions();
+                var function3Data = new FunctionEnvelopeData()
+                {
+                };
+                var function3_lro = await function3Collection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app3Name, function3Data);
+                var function3 = function3_lro.Value;
 
-                Utilities.Log("Created function app " + app3.Name);
-                Utilities.Print(app3);
+                Utilities.Log("Created function app " + function3.Data.Name);
+                Utilities.Print(function3);
 
                 //============================================================
                 // Deploy to app 1 through Git
 
                 Utilities.Log("Deploying a local function app to " + app1Name + " through Git...");
 
-                IPublishingProfile profile = app1.GetPublishingProfile();
-                Utilities.DeployByGit(profile, "square-function-app-admin-auth");
+                var profile_lro = await webSite.GetPublishingProfileXmlWithSecretsAsync(new CsmPublishingProfile()
+                {
+                    Format = PublishingProfileFormat.WebDeploy
+                });
+                var profile = profile_lro.Value;
+                var reader = new StreamReader(profile);
+                var content = reader.ReadToEnd();
+                XmlDocument xmlDoc = new XmlDocument();
+                xmlDoc.LoadXml(content);
+                XmlNodeList gitUrl = xmlDoc.GetElementsByTagName("publishUrl");
+                string gitUrlString = gitUrl[0].InnerText;
+                XmlNodeList userName = xmlDoc.GetElementsByTagName("userName");
+                string userNameString = userName[0].InnerText;
+                XmlNodeList password = xmlDoc.GetElementsByTagName("userPWD");
+                string passwordString = password[0].InnerText;
+                Utilities.DeployByGit(userNameString, passwordString, gitUrlString, "square-function-app-admin-auth");
 
                 // warm up
                 Utilities.Log("Warming up " + app1Url + "/api/square...");
                 Utilities.PostAddress("http://" + app1Url + "/api/square", "625");
-                SdkContext.DelayProvider.Delay(5000);
+                Thread.Sleep(5000);
                 Utilities.Log("CURLing " + app1Url + "/api/square...");
-                Utilities.Log("Square of 625 is " + Utilities.PostAddress("http://" + app1Url + "/api/square?code=" + app1.GetMasterKey(), "625"));
+                Utilities.Log("Square of 625 is " + Utilities.PostAddress("http://" + app1Url + "/api/square?code=" + function.GetFunctionKeys(), "625"));
 
                 //============================================================
                 // Deploy to app 2 through Git
 
                 Utilities.Log("Deploying a local function app to " + app2Name + " through Git...");
 
-                profile = app2.GetPublishingProfile();
-                Utilities.DeployByGit(profile, "square-function-app-function-auth");
+                var profile2_lro = await webSite2.GetPublishingProfileXmlWithSecretsAsync(new CsmPublishingProfile()
+                {
+                    Format = PublishingProfileFormat.WebDeploy
+                });
+                var profile2 = profile2_lro.Value;
+                var reader2 = new StreamReader(profile2);
+                var content2 = reader2.ReadToEnd();
+                XmlDocument xmlDoc2 = new XmlDocument();
+                xmlDoc.LoadXml(content2);
+                XmlNodeList gitUrl2 = xmlDoc2.GetElementsByTagName("publishUrl");
+                string gitUrlString2 = gitUrl2[0].InnerText;
+                XmlNodeList userName2 = xmlDoc.GetElementsByTagName("userName");
+                string userNameString2 = userName2[0].InnerText;
+                XmlNodeList password2 = xmlDoc.GetElementsByTagName("userPWD");
+                string passwordString2 = password2[0].InnerText;
+                Utilities.DeployByGit(userNameString2, passwordString2, gitUrlString2, "square-function-app-function-auth");
 
-                Utilities.Log("Deployment to function app " + app2.Name + " completed");
-                Utilities.Print(app2);
+                Utilities.Log("Deployment to function app " + webSite2.Data.Name + " completed");
+                Utilities.Print(webSite2);
 
 
-                string functionKey = app2.ListFunctionKeys("square").Values.First();
+                var functionKey_lro =await function2.GetFunctionKeysAsync();
+                var functionKey = functionKey_lro.Value;
+                var functionKey1 = functionKey.Properties.First();
 
                 // warm up
                 Utilities.Log("Warming up " + app2Url + "/api/square...");
                 Utilities.PostAddress("http://" + app2Url + "/api/square", "725");
-                SdkContext.DelayProvider.Delay(5000);
+                Thread.Sleep(5000);
                 Utilities.Log("CURLing " + app2Url + "/api/square...");
-                Utilities.Log("Square of 725 is " + Utilities.PostAddress("http://" + app2Url + "/api/square?code=" + functionKey, "725"));
+                Utilities.Log("Square of 725 is " + Utilities.PostAddress("http://" + app2Url + "/api/square?code=" + functionKey1, "725"));
             
-                Utilities.Log("Adding a new key to function app " + app2.Name + "...");
+                Utilities.Log("Adding a new key to function app " + function2.Data.Name + "...");
 
-                var newKey = app2.AddFunctionKey("square", "newkey", null);
+                var newKey = function2.CreateOrUpdateFunctionSecret("square", new WebAppKeyInfo()
+                {
+                    Properties = new WebAppKeyInfoProperties()
+                    {
+                        Name = "newkey",
+                    }
+                });
 
                 Utilities.Log("CURLing " + app2Url + "/api/square...");
                 Utilities.Log("Square of 825 is " + Utilities.PostAddress("http://" + app2Url + "/api/square?code=" + newKey.Value, "825"));
@@ -135,20 +212,29 @@ namespace ManageFunctionAppWithAuthentication
 
                 Utilities.Log("Deploying a local function app to " + app3Name + " throuh web deploy...");
 
-                app3.Deploy()
-                    .WithPackageUri("https://github.com/Azure/azure-libraries-for-net/raw/master/Samples/Asset/square-function-app-function-auth.zip")
-                    .WithExistingDeploymentsDeleted(false)
-                    .Execute();
+                var extensionResource = webSite.GetSiteExtension();
+                var deployment_lro = await extensionResource.CreateOrUpdateAsync(WaitUntil.Completed, new WebAppMSDeploy()
+                {
+                    PackageUri = new Uri("https://github.com/Azure/azure-libraries-for-net/raw/master/Samples/Asset/square-function-app-function-auth.zip"),
+                });
+                var deployment = deployment_lro.Value;
 
-                Utilities.Log("Deployment to function app " + app3.Name + " completed");
+                Utilities.Log("Deployment to function app " + function3.Data.Name + " completed");
 
-                Utilities.Log("Adding a new key to function app " + app3.Name + "...");
-                app3.AddFunctionKey("square", "newkey", "mysecretkey");
+                Utilities.Log("Adding a new key to function app " + function.Data.Name + "...");
+                function3.CreateOrUpdateFunctionSecret("square",new WebAppKeyInfo()
+                {
+                    Properties = new WebAppKeyInfoProperties()
+                    {
+                        Name = "newkey",
+                        Value = "mysecretkey"
+                    }
+                });
 
                 // warm up
                 Utilities.Log("Warming up " + app3Url + "/api/square...");
                 Utilities.PostAddress("http://" + app3Url + "/api/square", "925");
-                SdkContext.DelayProvider.Delay(5000);
+                Thread.Sleep(5000);
                 Utilities.Log("CURLing " + app3Url + "/api/square...");
                 Utilities.Log("Square of 925 is " + Utilities.PostAddress("http://" + app3Url + "/api/square?code=mysecretkey", "925"));
             }
@@ -157,7 +243,7 @@ namespace ManageFunctionAppWithAuthentication
                 try
                 {
                     Utilities.Log("Deleting Resource Group: " + rgName);
-                    azure.ResourceGroups.DeleteByName(rgName);
+                    await resourceGroup.DeleteAsync(WaitUntil.Completed);
                     Utilities.Log("Deleted Resource Group: " + rgName);
                 }
                 catch (NullReferenceException)
@@ -171,24 +257,23 @@ namespace ManageFunctionAppWithAuthentication
             }
         }
 
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             try
             {
                 //=================================================================
                 // Authenticate
-                var credentials = SdkContext.AzureCredentialsFactory.FromFile(Environment.GetEnvironmentVariable("AZURE_AUTH_LOCATION"));
-
-                var azure = Azure
-                    .Configure()
-                    .WithLogLevel(HttpLoggingDelegatingHandler.Level.Basic)
-                    .Authenticate(credentials)
-                    .WithDefaultSubscription();
+                var clientId = Environment.GetEnvironmentVariable("CLIENT_ID");
+                var clientSecret = Environment.GetEnvironmentVariable("CLIENT_SECRET");
+                var tenantId = Environment.GetEnvironmentVariable("TENANT_ID");
+                var subscription = Environment.GetEnvironmentVariable("SUBSCRIPTION_ID");
+                ClientSecretCredential credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+                ArmClient client = new ArmClient(credential, subscription);
 
                 // Print selected subscription
-                Utilities.Log("Selected subscription: " + azure.SubscriptionId);
+                Utilities.Log("Selected subscription: " + client.GetSubscriptions().Id);
 
-                RunSample(azure);
+                await RunSample(client);
             }
             catch (Exception e)
             {
